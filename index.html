@@ -1,0 +1,137 @@
+<!--
+Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+PDX-License-Identifier: MIT-0 (For details, see https://github.com/awsdocs/amazon-rekognition-developer-guide/blob/master/LICENSE-SAMPLECODE.)
+-->
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://sdk.amazonaws.com/js/aws-sdk-2.383.0.min.js"></script>
+  <meta charset="UTF-8">
+  <title>Rekognition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    table {
+      border-collapse: collapse;
+      table-layout: auto;
+      width: 100%;
+    }
+
+    table, td, th {
+      border: 1px solid dimgray;
+    }
+
+    th, td {
+      text-align: center;
+    }
+
+    tr:nth-child(even){background-color: #f2f2f2}
+
+    th {
+      background-color:gold;
+      color: dimgray;
+    }
+  </style>
+</head>
+
+<body>
+  <div style="float:initial;background-color:gold">
+    <h1 align="center" style="color:dimgray">Rekognition - Web App</h1>
+    <input type="file" name="fileToUpload" id="fileToUpload" accept="image/*">
+  </div>
+  <div>
+      <div style="float: left; width: 50%">
+          <img id="preview" width="50%" height="50%"/>
+      </div>
+      <div style="float: left; width: 50%">
+        <div style="float:initial">
+          <pre><code id="opResult"></code></pre>
+        </div>
+        <div>
+          <pre><code id="opResultEmotions"></code></pre>
+        </div>
+      </div>
+  </div>
+</body>
+<script>
+
+  document.getElementById("fileToUpload").addEventListener("change", function (event) {
+    PreviewImage();
+    ProcessImage();
+  }, false);
+  
+  function PreviewImage() {
+    var preview = document.getElementById('preview');
+    preview.src = URL.createObjectURL(event.target.files[0]);
+  };
+
+  function ProcessImage() {
+    AnonLog();
+    var control = document.getElementById("fileToUpload");
+    var file = control.files[0];
+
+    // Load base64 encoded image for display 
+    var reader = new FileReader();
+    reader.onload = (function (theFile) {
+      return function (e) {
+        //Call Rekognition  
+        AWS.region = "RegionToUse";  
+        var rekognition = new AWS.Rekognition();
+        var params = {
+          Image: {
+          Bytes: e.target.result
+        },
+        Attributes: [
+        'ALL',
+      ]
+    };
+    rekognition.detectFaces(params, function (err, data) {
+      if (err) console.log(err, err.stack); // an error occurred
+      else {
+       var table = "<table><tr><th>Rango Edad</th><th>Sonriendo</th><th>Genero</th><th>Barba</th><th>Bigote</th><th>Gafas</th><th>Gafas de sol</th><th>Ojos abiertos</th><th>Boca abierta</th></tr>";
+       var tableEmotions = "<table><tr><th>Sorprendido</th><th>Feliz</th><th>Triste</th><th>Calmado</th><th>Enfadado</th><th>Disgustado</th><th>Confundido</th></tr>";
+        for (var i = 0; i < data.FaceDetails.length; i++) {
+          table += '<tr><td>' + data.FaceDetails[i].AgeRange.Low + '-' + data.FaceDetails[i].AgeRange.High + '</td>' +
+            '</td><td>' + data.FaceDetails[i].Smile.Value + '</td>' +
+            '</td><td>' + data.FaceDetails[i].Gender.Value + '</td>' +
+            '</td><td>' + data.FaceDetails[i].Beard.Value + '</td>' +
+            '</td><td>' + data.FaceDetails[i].Mustache.Value + '</td>' +
+            '</td><td>' + data.FaceDetails[i].Eyeglasses.Value + '</td>' +
+            '</td><td>' + data.FaceDetails[i].Sunglasses.Value +'</td>' +
+            '</td><td>' + data.FaceDetails[i].EyesOpen.Value + '</td>' +
+            '</td><td>' + data.FaceDetails[i].MouthOpen.Value +'</td></tr>';
+
+            for (var j = 0; j < data.FaceDetails[i].Emotions.length; j++) {
+              tableEmotions += '<td>' + data.FaceDetails[i].Emotions[j].Confidence.toFixed(2); + '</td>';
+            }
+            tableEmotions += "<tr>";
+          }
+        table += "</table>";
+        tableEmotions += "</tr></table>";
+
+        document.getElementById("opResult").innerHTML = table;
+        document.getElementById("opResultEmotions").innerHTML = tableEmotions;
+      }
+    });
+
+      };
+    })(file);
+    reader.readAsArrayBuffer(file);
+  }
+  //Provides anonymous log on to AWS services
+  function AnonLog() {
+    
+    // Configure the credentials provider to use your identity pool
+    AWS.config.region = 'us-east-1'; // Region
+    AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+      IdentityPoolId: "<YOUR-IDENTITY-POOL-HERE>",
+    });
+    // Make the call to obtain credentials
+    AWS.config.credentials.get(function () {
+      // Credentials will be available when this function is called.
+      var accessKeyId = AWS.config.credentials.accessKeyId;
+      var secretAccessKey = AWS.config.credentials.secretAccessKey;
+      var sessionToken = AWS.config.credentials.sessionToken;
+    });
+  }
+</script>
+</html>

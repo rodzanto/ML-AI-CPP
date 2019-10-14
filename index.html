@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <style type="text/css">@charset "UTF-8";[ng\:cloak],[ng-cloak],[data-ng-cloak],[x-ng-cloak],.ng-cloak,.x-ng-cloak,.ng-hide:not(.ng-hide-animate){display:none !important;}ng\:form{display:block;}.ng-animate-shim{visibility:hidden;}.ng-anchor{position:absolute;}
+  </style>
+  <style id="stndz-style">
+  </style>
+  
+  <title>AWS Rekognition Demo</title>
+  
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="googlebot" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!--<link rel="stylesheet" type="text/css" href="./result-light.css">-->
+
+  <script type="text/javascript" src="https://sdk.amazonaws.com/js/aws-sdk-2.548.0.min.js"></script>
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+  <script type="text/javascript" src="https://s3.amazonaws.com/devspacepaulsites/webcam.min.js"></script>
+
+  <style id="compiled-css" type="text/css">
+
+    #labelResults {
+      color: black;
+      background-color: rgba(144, 231, 156, 0.4);
+
+      position: absolute;
+      top: 20px;
+      left: 1000px;
+      width: 250px;
+      padding: 5px;
+
+      text-shadow: 1px 1px white;
+      font-family: monospace;
+      
+      border-color: black;
+      border-width: 1px;
+      border-style: dashed;
+    }
+
+    #faceResults {
+      color: black;
+      background-color: rgba(118, 161, 224, 0.4);
+      visibility: hidden;
+      
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 200px;
+      padding: 5px;
+
+      text-shadow: 1px 1px white;
+      font-family: monospace;
+
+      border-color: black;
+      border-width: 1px;
+      border-style: dashed;
+    }
+
+    #faceBox {
+      visibility: hidden;
+      
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 200px;
+      padding: 5px;
+      
+      border: 4px solid #ff9900;
+    }
+
+    #faceCelebrity {
+      color: red;
+      font-family: monospace;
+      visibility: hidden;
+      font-size: 30px;
+      
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 200px;
+      padding: 5px;
+
+      border: 4px solid #bf0816;
+    }
+
+    .rekLabel {
+      font-size: 20pt;  
+    }
+
+    .rekType {
+      font-size: 20pt;  
+    }
+
+    .rekScore {
+      font-size: 12pt;  
+    }
+
+  	.speech-bubble .arrow {
+  	  border-style: solid;
+  	  position: absolute;
+  	}
+
+  	.bottom {
+  	    border-color: #c8c8c8 transparent transparent transparent;
+  	    border-width: 8px 8px 0px 8px;
+  	    bottom: -8px;
+  	}
+
+    #box {
+      position:absolute;
+      visibility: hidden;
+      border-color: #eb0202;
+      border-width: 1px;
+      border-style: dotted;
+    }
+
+    #speechBubble {
+      position:absolute;
+      visibility: hidden;
+      opacity: 0.8;
+
+      width:270px;
+      height:30px;
+      padding:50px 40px;
+      margin:1em auto 80px;
+      text-align:center;
+      columns: #000000;
+      background:#ffffff;
+
+      border-color: #000000;
+      border-width: 1px;
+      border-style: solid;
+      -webkit-border-top-left-radius:220px 120px;
+      -webkit-border-top-right-radius:220px 120px;
+      -webkit-border-bottom-right-radius:220px 120px;
+      -webkit-border-bottom-left-radius:220px 120px;
+      -moz-border-radius:220px / 120px;
+      border-radius:220px / 120px;
+
+      font-size:1.25em;
+      font-family: monospace;
+    }
+
+    /* creates the larger circle */
+    #speechBubble:before {
+      content:"";
+      position:absolute;
+
+      bottom:-20px;
+      left:50px;
+      width:30px;
+      height:30px;
+      background:#ffffff;
+      
+      -webkit-border-radius:30px;
+      -moz-border-radius:30px;
+      border-radius:30px;
+      border-color: #000000;
+      border-width: 1px;
+      border-style: solid;
+    }
+
+    /* creates the smaller circle */
+    #speechBubble:after {
+      content:"";
+      position:absolute;
+
+      bottom:-30px;
+      left:30px;
+      width:15px;
+      height:15px;
+      background:#ffffff;
+      
+      -webkit-border-radius:15px;
+      -moz-border-radius:15px;
+      border-radius:15px;
+      border-color: #000000;
+      border-width: 1px;
+      border-style: solid;
+    }
+  </style>
+
+  <script type="text/javascript">
+
+    var emotionTexts = {
+      "CALM": "Tengo sueño, ¡necesito la energía de AWS!",
+      "SAD": "Los servidores on-prem me entristecen...",
+      "CONFUSED": "No entiendo esta demo, voy a preguntarle a un SA",
+      "HAPPY": "¡Me encanta la inteligencia artificial!",
+      "ANGRY": "El hambre me tiene de mal humor...",
+      "DISGUSTED": "¿Algún médico en la sala?",
+      "SURPRISED": "¡Hala! ¡como mola esta demo!"
+    };
+
+    var rekognition = null;
+    var camWidth = 0;
+    var camHeight = 0;
+
+    function startRekognition() {
+      AWS.config.region = 'eu-west-1'; // Region
+      AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+          IdentityPoolId: '<YOUR-IDENTITY-POOL-HERE>',
+      });
+      rekognition = new AWS.Rekognition();
+    }
+
+    function getAndListLabels() {
+
+        let mainEmotion = null
+
+        Webcam.snap(function(data_uri) {
+
+          var imageBlob = dataURItoBlob(data_uri);
+          var params = {
+            Image: {
+              Bytes: imageBlob
+            }
+          };
+          var params1 = {
+            Attributes: ["ALL"],
+            Image: {
+              Bytes: imageBlob
+            }
+          };
+
+          
+
+        });
+    }
+
+    function dataURItoBlob(dataURI) {
+      var binary = atob(dataURI.split(',')[1]);
+      var array = [];
+      for (var i = 0; i < binary.length; i++) {
+        array.push(binary.charCodeAt(i));
+      }
+      return new Uint8Array(array);
+    }
+
+    window.onload = function() {
+      
+      let viewWidth = 1280
+      let viewHeight = 720
+      
+      Webcam.set({
+        width: viewWidth,
+        height: viewHeight,
+        dest_width: viewWidth,
+        dest_height: viewHeight,
+        image_format: 'jpeg',
+        jpeg_quality: 90
+      });
+      Webcam.attach('#videoFrame');
+    
+      Webcam.on('live', function(){
+        // get cam view size
+        let videoFrame = document.getElementById("videoFrame")
+        let cam = $(videoFrame).find("video")[0]
+        camWidth = cam.videoWidth
+        camHeight = cam.videoHeight
+        console.log(camWidth + "-" + camHeight)
+        startRekognition();
+        setInterval(function() {
+          getAndListLabels();
+        }, 1000);
+      });
+    }
+
+  </script>
+
+</head>
+
+<body>
+  <div>
+    
+
+    <!--img id="overlay1" src="Hair.png" style="position:absolute; left: 40px; top: 40px; width: 40px; height: 40px;"/>
+    <img id="overlay2" src="Moustache.png" style="position:absolute; left: 40px; top: 40px; width: 40px; height: 40px;"/-->
+
+
+    <div id="videoFrame"></div>
+    <div id="labelResults"></div>
+    <div id="faceResults"></div>
+    <div id="faceBox"></div>
+    <div id="faceCelebrity"></div>
+    <label id="speechBubble"></label>
+    <div class="arrow bottom right"></div>
+    <div id="box"></div>
+  </div>
+
+  <script>
+    // tell the embed parent frame the height of the content
+    if (window.parent && window.parent.parent){
+      window.parent.parent.postMessage(["resultsFrame", {
+        height: document.body.getBoundingClientRect().height,
+        slug: ""
+      }], "*")
+    }
+    // always overwrite window.name, in case users try to set it manually
+    window.name = "result"
+  </script>
+
+</body>
+</html>
